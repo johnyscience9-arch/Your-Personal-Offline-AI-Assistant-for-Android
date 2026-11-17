@@ -29,6 +29,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
+          packages: ''
 
       - name: Locate SDK Manager
         shell: bash
@@ -57,6 +58,7 @@ jobs:
         shell: bash
         run: |
           set -e
+
           adb version
           "$SDKMANAGER" --list_installed
 
