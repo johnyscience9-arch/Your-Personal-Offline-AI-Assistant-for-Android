@@ -15,95 +15,82 @@ jobs:
     name: Build Your GPT Android APK
     runs-on: ubuntu-latest
 
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
     steps:
-      - name: Checkout Project
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Locate Android SDK Manager
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+
+      - name: Find SDK Manager
         shell: bash
         run: |
           set -e
 
-          echo "Checking Android SDK..."
+          echo "ANDROID_HOME=$ANDROID_HOME"
 
-          if [ ! -d "$ANDROID_HOME" ]; then
-            echo "Android SDK directory not found!"
-            exit 1
-          fi
-
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          SDKMANAGER=$(find "$ANDROID_HOME" \
+            -type f -name sdkmanager 2>/dev/null | head -n 1)
 
           if [ -z "$SDKMANAGER" ]; then
-            echo "SDKMANAGER NOT FOUND!"
-            find "$ANDROID_HOME" -maxdepth 5 -type f -name sdkmanager
+            echo "ERROR: sdkmanager not found!"
+            find "$ANDROID_HOME/cmdline-tools" -maxdepth 4 -type f 2>/dev/null || true
             exit 1
           fi
 
+          echo "Found SDK Manager: $SDKMANAGER"
+
+          SDK_BIN=$(dirname "$SDKMANAGER")
+          echo "$SDK_BIN" >> "$GITHUB_PATH"
           echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
-          echo "SDKMANAGER FOUND!"
 
-      - name: Accept Android SDK Licenses
+      - name: Verify SDK Manager
         shell: bash
         run: |
           set -e
-          set -o pipefail
-
-          yes | "$SDKMANAGER" --licenses
-
-      - name: Install Android SDK Packages
-        shell: bash
-        run: |
-          set -e
-
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Verify Android SDK
-        shell: bash
-        run: |
+          "$SDKMANAGER" --version
           adb version
-          echo "Android SDK Ready!"
 
       - name: Verify Project
         shell: bash
         run: |
+          set -e
           ls -la
           test -f gradlew
-          test -f app/build.gradle
-          echo "Project structure verified!"
+          test -f app/build.gradle || test -f app/build.gradle.kts
+          echo "Project structure OK"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build APK
+      - name: Build Your GPT APK
         shell: bash
         run: |
+          set -e
           chmod +x gradlew
           ./gradlew --no-daemon clean assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
+          set -e
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -f "$APK" ]; then
-            echo "APK NOT FOUND!"
+            echo "APK NOT FOUND"
             exit 1
           fi
 
-          echo "APK GENERATED SUCCESSFULLY!"
+          echo "APK BUILD SUCCESSFUL"
           ls -lh "$APK"
 
       - name: Upload APK
