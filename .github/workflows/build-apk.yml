@@ -29,71 +29,79 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
-          packages: |
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
 
-      - name: Find SDK Manager
+      - name: Locate SDK Manager
         shell: bash
         run: |
           set -e
 
-          echo "ANDROID_HOME=$ANDROID_HOME"
-
-          SDKMANAGER=$(find "$ANDROID_HOME" \
-            -type f -name sdkmanager 2>/dev/null | head -n 1)
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+            -type f -name sdkmanager -print -quit)
 
           if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager not found!"
-            find "$ANDROID_HOME/cmdline-tools" -maxdepth 4 -type f 2>/dev/null || true
+            echo "ERROR: SDK Manager not found!"
             exit 1
           fi
 
-          echo "Found SDK Manager: $SDKMANAGER"
-
-          SDK_BIN=$(dirname "$SDKMANAGER")
-          echo "$SDK_BIN" >> "$GITHUB_PATH"
           echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "Found: $SDKMANAGER"
 
-      - name: Verify SDK Manager
+      - name: Install Android SDK Packages
         shell: bash
         run: |
           set -e
-          "$SDKMANAGER" --version
+
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Verify Android SDK
+        shell: bash
+        run: |
+          set -e
           adb version
+          "$SDKMANAGER" --list_installed
 
       - name: Verify Project
         shell: bash
         run: |
           set -e
-          ls -la
-          test -f gradlew
-          test -f app/build.gradle || test -f app/build.gradle.kts
-          echo "Project structure OK"
 
-      - name: Build Your GPT APK
+          ls -la
+
+          test -f gradlew
+
+          test -f app/build.gradle || \
+          test -f app/build.gradle.kts
+
+          echo "Project structure verified!"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
         shell: bash
         run: |
           set -e
+
           chmod +x gradlew
+
           ./gradlew --no-daemon clean assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
           set -e
+
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -f "$APK" ]; then
-            echo "APK NOT FOUND"
+            echo "APK NOT FOUND!"
             exit 1
           fi
 
-          echo "APK BUILD SUCCESSFUL"
+          echo "APK BUILD SUCCESSFUL!"
           ls -lh "$APK"
 
-      - name: Upload APK
+      - name: Upload Your GPT APK
         uses: actions/upload-artifact@v4
         with:
           name: Your-GPT-APK
