@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     env:
@@ -19,7 +20,7 @@ jobs:
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -28,30 +29,54 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Accept Android SDK licenses and install packages
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+
+      - name: Check Android SDK
         shell: bash
         run: |
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          echo "Checking Android SDK..."
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          adb version
+          sdkmanager --list_installed
 
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager not found"
-            find "$ANDROID_HOME" -maxdepth 4 -type f -name sdkmanager 2>/dev/null || true
-            exit 1
-          fi
+      - name: Check Project Files
+        shell: bash
+        run: |
+          echo "Checking project..."
+          ls -la
+          test -f gradlew
+          test -f settings.gradle || test -f settings.gradle.kts
+          test -f app/build.gradle || test -f app/build.gradle.kts
+          echo "Project files found."
 
-          echo "Using: $SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Build APK
+      - name: Build Debug APK
+        shell: bash
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon clean assembleDebug
 
-      - name: Upload APK
+      - name: Verify APK
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated!"
+            exit 1
+          fi
+          ls -lh "$APK"
+          echo "APK BUILD SUCCESSFUL!"
+
+      - name: Upload Your GPT APK
         uses: actions/upload-artifact@v4
         with:
           name: Your-GPT-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
+          retention-days: 14
