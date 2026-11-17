@@ -218,8 +218,8 @@ class OfflineAiEngine(context: Context) {
 
     companion object {
         private const val MODEL_FILE = "yourgpt-qwen3-0.6b-int4.litertlm"
-        private const val MIN_MODEL_BYTES = 400L * 1024L * 1024L
+        private const val MIN_MODEL_BYTES = 250L * 1024L * 1024L
         private const val MODEL_URL =
-            "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm?download=true"
+            "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B_dynamic_wi4b32_afp32.litertlm?download=true"
     }
 }
